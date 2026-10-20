@@ -17,6 +17,7 @@ comparador_mysql/
 │   │   ├── estrutura.py             # ColunaDTO, TabelaDTO, EstruturaBancoDTO
 │   │   └── diferenca.py             # DiferencaDTO
 │   ├── infraestrutura/
+│   │   ├── chaves_ssh.py            # Valida a chave pública do servidor SSH
 │   │   ├── conexoes.py              # MySQL local + túnel SSH automático
 │   │   └── metadados.py             # Queries ao information_schema
 │   ├── servicos/
@@ -25,7 +26,9 @@ comparador_mysql/
 │       └── relatorios.py            # Terminal + CSV
 └── tests/
     ├── test_comparacao.py
-    └── test_config.py
+    ├── test_config.py
+    ├── test_chave_host_ssh.py
+    └── test_cli.py
 ```
 
 ## Instalação (Windows / PowerShell)
@@ -110,6 +113,12 @@ Ajuda:
 python executar.py --help
 ```
 
+Para obter o traceback de uma falha sem alterar o código:
+
+```powershell
+python executar.py --debug
+```
+
 ## O que é comparado
 
 - Tabelas que existem só no MySQL local ou só no remoto;
@@ -128,3 +137,37 @@ python -m pytest -q
 ```
 
 Testes unitários não exigem conexão ativa ao banco de dados. O script foi projetado para consulta somente-leitura (`information_schema`).
+
+## Correção: 'str' object has no attribute 'get_name'
+
+Na implementação anterior, a configuração `ssh_host_key` era encaminhada como
+**string** ao `sshtunnel` 0.4.0, que entrega o valor ao método
+`paramiko.Transport.connect(hostkey=...)`. O Paramiko espera um objeto
+`PKey`. A nova função `converter_chave_publica_host` converte a entrada
+em objeto `paramiko.PKey`, antes da conexão SSH.
+
+- `SSH_KEY_PATH` é a **chave privada do usuário SSH**, usada para login.
+- `SSH_HOST_KEY` é a **chave pública do servidor SSH**, usada para verificar a identidade do host.
+- `REMOTE_MYSQL_PASSWORD` é a **senha MySQL remota**; nunca um caminho de chave.
+
+Em `SSH_HOST_KEY`, informe `ssh-ed25519 AAAA...`,
+`servidor ssh-ed25519 AAAA...` ou `[servidor]:porta ssh-ed25519 AAAA...`.
+Apenas a impressão digital `SHA256:...` não é suficiente.
+Uma linha `known_hosts` deve identificar o host e porta configurados.
+
+Se você já confiou na chave pública correta do servidor, verifique:
+
+```powershell
+Get-Content "$env:USERPROFILE\\.ssh\\known_hosts"
+```
+
+Confira a impressão digital da chave do servidor por canal confiável antes de
+cadastrar uma chave nova. O valor vazio de `SSH_HOST_KEY` mantém o
+comportamento legado do `sshtunnel`, **sem validar a identidade do servidor**.
+
+Use `python executar.py --debug` para obter traceback durante o diagnóstico.
+O `--debug` não deve ser utilizado em logs públicos sem revisar seu conteúdo.
+
+**Proteja o arquivo `.env`**, que pode conter senhas. O programa não grava
+senhas no CSV nem modifica a estrutura dos bancos. Os testes unitários usam
+objetos simulados e **não confirmam** o acesso ao seu servidor SSH real.

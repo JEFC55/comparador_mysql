@@ -8,6 +8,7 @@ from getpass import getpass
 from typing import Iterator, TYPE_CHECKING
 
 from comparador.dto.configuracao import ComparacaoConfigDTO, MySQLConfigDTO
+from comparador.infraestrutura.chaves_ssh import converter_chave_publica_host
 
 if TYPE_CHECKING:
     from mysql.connector.connection import MySQLConnection
@@ -57,7 +58,9 @@ def abrir_conexoes(config: ComparacaoConfigDTO) -> Iterator[tuple[MySQLConnectio
         if ssh.key_passphrase:
             argumentos_ssh["ssh_private_key_password"] = ssh.key_passphrase
     if ssh.host_key:
-        argumentos_ssh["ssh_host_key"] = ssh.host_key
+        argumentos_ssh["ssh_host_key"] = converter_chave_publica_host(
+            ssh.host_key, ssh.host, ssh.port
+        )
 
     print(f"Conectando ao MySQL local ({local_cfg.schema})...")
     with closing(_conectar_mysql(local_cfg)) as local:
