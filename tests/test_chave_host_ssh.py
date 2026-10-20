@@ -1,6 +1,7 @@
 """Regressões para a validação e conversão de SSH_HOST_KEY."""
 
 import sys
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
@@ -34,6 +35,21 @@ def paramiko_falso(monkeypatch):
                 raise InvalidHostKey("malformado")
             return SimpleNamespace(key=PKeyFake(campos[1]))
 
+    class HostKeys:
+        def __init__(self):
+            self.registros = {}
+
+        def load(self, caminho):
+            for linha in Path(caminho).read_text(encoding="utf-8").splitlines():
+                if not linha.strip() or linha.startswith("#"):
+                    continue
+                host, tipo, _conteudo = linha.split()[:3]
+                self.registros.setdefault(host, {})[tipo] = PKeyFake(tipo)
+
+        def lookup(self, host):
+            return self.registros.get(host)
+
+    fake.HostKeys = HostKeys
     fake.SSHException = SSHException
     fake.hostkeys = SimpleNamespace(HostKeyEntry=HostKeyEntry, InvalidHostKey=InvalidHostKey)
     monkeypatch.setitem(sys.modules, "paramiko", fake)
@@ -154,3 +170,68 @@ def test_sem_host_key_mantem_configuracao_original(paramiko_falso, monkeypatch):
     with conexoes.abrir_conexoes(config):
         pass
     assert "ssh_host_key" not in recebido
+
+
+
+def test_known_hosts_padrao_usa_chave_confiada(paramiko_falso, monkeypatch, tmp_path):
+    pasta = tmp_path / ".ssh"
+    pasta.mkdir()
+    (pasta / "known_hosts").write_text(
+        "host.exemplo ssh-ed25519 AAAAEXEMPLO\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    chave = converter_chave_publica_host("known_hosts", "host.exemplo", 22)
+    assert chave.get_name() == "ssh-ed25519"
+
+
+def test_caminho_known_hosts_porta_personalizada(paramiko_falso, tmp_path):
+    caminho = tmp_path / "ssh configuracao" / "known_hosts"
+    caminho.parent.mkdir()
+    caminho.write_text(
+        "[host.exemplo]:2222 ssh-rsa AAAAEXEMPLO\n", encoding="utf-8"
+    )
+    chave = converter_chave_publica_host(str(caminho), "host.exemplo", 2222)
+    assert chave.get_name() == "ssh-rsa"
+
+
+def test_known_hosts_servidor_nao_registrado_falha_fechado(paramiko_falso, tmp_path):
+    caminho = tmp_path / "known_hosts"
+    caminho.write_text("outro.host ssh-ed25519 AAAAEXEMPLO\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="não está registrado"):
+        converter_chave_publica_host(str(caminho), "host.exemplo", 22)
+
+
+def test_known_hosts_inexistente_explica_erro(paramiko_falso, tmp_path):
+    with pytest.raises(ValueError, match="não encontrado"):
+        converter_chave_publica_host(str(tmp_path / "known_hosts"), "host.exemplo", 22)
+
+
+def test_fingerprint_orienta_known_hosts(paramiko_falso):
+    with pytest.raises(ValueError, match="fingerprint SHA256"):
+        converter_chave_publica_host("SHA256:abc", "host.exemplo", 22)
+
+
+def test_caminho_chave_privada_orienta_ssh_key_path(paramiko_falso):
+    with pytest.raises(ValueError, match="SSH_KEY_PATH"):
+        converter_chave_publica_host(
+            "C:/Users/User/.ssh/id_ed25519", "host.exemplo", 22
+        )
+
+
+def test_caminho_windows_com_barra_invertida_e_reconhecido(paramiko_falso, monkeypatch):
+    import comparador.infraestrutura.chaves_ssh as modulo
+
+    consulta = {}
+
+    def carregador(caminho, host, port):
+        consulta["caminho"] = str(caminho)
+        consulta["host"] = host
+        consulta["port"] = port
+        return SimpleNamespace(get_name=lambda: "ssh-ed25519")
+
+    monkeypatch.setattr(modulo, "_ler_known_hosts", carregador)
+    chave = converter_chave_publica_host(r"C:\Users\User\.ssh\known_hosts", "host.exemplo", 22)
+    assert chave.get_name() == "ssh-ed25519"
+    assert consulta["caminho"].endswith("known_hosts")
+    assert consulta["host"] == "host.exemplo"
+    assert consulta["port"] == 22
