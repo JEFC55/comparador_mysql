@@ -150,7 +150,22 @@ em objeto `paramiko.PKey`, antes da conexão SSH.
 - `SSH_HOST_KEY` é a **chave pública do servidor SSH**, usada para verificar a identidade do host.
 - `REMOTE_MYSQL_PASSWORD` é a **senha MySQL remota**; nunca um caminho de chave.
 
-Em `SSH_HOST_KEY`, informe `ssh-ed25519 AAAA...`,
+Se o servidor já estiver registrado e verificado pelo OpenSSH, a configuração
+mais simples no `.env` é:
+
+```dotenv
+SSH_HOST_KEY=known_hosts
+```
+
+A biblioteca procura o host e a porta em `~/.ssh/known_hosts`
+(`C:/Users/SEU_USUARIO/.ssh/known_hosts` no Windows). Também é possível
+usar `SSH_HOST_KEY=C:/Users/SEU_USUARIO/.ssh/known_hosts`.
+Se o servidor não estiver registrado, a conexão **falha sem confiar
+automaticamente na identidade de um novo host**. Confirme a chave pública
+por outro canal seguro antes de adicioná-la ao arquivo.
+Não utilize `id_ed25519` ou `id_ed25519.pub` nesse campo.
+
+Como alternativa, em `SSH_HOST_KEY`, informe `ssh-ed25519 AAAA...`,
 `servidor ssh-ed25519 AAAA...` ou `[servidor]:porta ssh-ed25519 AAAA...`.
 Apenas a impressão digital `SHA256:...` não é suficiente.
 Uma linha `known_hosts` deve identificar o host e porta configurados.

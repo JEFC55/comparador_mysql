@@ -52,9 +52,10 @@ class SSHConfigDTO:
               a biblioteca pode usar o agente SSH ou senha configurada.
     key_passphrase: frase secreta da chave privada, NÃO é senha do MySQL.
     host_key: chave pública do SERVIDOR SSH (não a chave privada de login),
-              no formato "ssh-ed25519 AAAA..." ou linha de known_hosts
-              "host ssh-ed25519 AAAA...". O código converte-a para
-              paramiko.PKey antes de abrir o túnel. Defina este valor para
+              no formato "ssh-ed25519 AAAA...", uma linha de known_hosts,
+              "known_hosts" para ler ~/.ssh/known_hosts ou caminho de arquivo
+              known_hosts confiado. O código localiza host e porta, convertendo
+              a chave em paramiko.PKey. Defina este valor para
               verificar a identidade do servidor e evitar spoofing.
     """
 
