@@ -20,6 +20,7 @@ def executar(argumentos: list[str] | None = None) -> int:
     parser.add_argument("--tabela", help="Compara somente esta tabela (ex.: tb_produto)")
     parser.add_argument("--saida", type=Path, help="Caminho do relatório CSV")
     parser.add_argument("--env", type=Path, help="Arquivo .env alternativo")
+    parser.add_argument("--debug", action="store_true", help="Exibe traceback em caso de erro")
     args = parser.parse_args(argumentos)
 
     try:
@@ -42,8 +43,14 @@ def executar(argumentos: list[str] | None = None) -> int:
         return 0
     except (ValueError, OSError, ImportError) as exc:
         print(f"Erro: {exc}", file=sys.stderr)
+        if args.debug:
+            import traceback
+            traceback.print_exc()
         return 1
     except Exception as exc:
         # Exceções próprias do driver MySQL ou da biblioteca de túnel SSH.
         print(f"Erro de conexão ou de consulta: {exc}", file=sys.stderr)
+        if args.debug:
+            import traceback
+            traceback.print_exc()
         return 1

@@ -47,7 +47,7 @@ CONFIG_PADRAO = ComparacaoConfigDTO(
         key_path=None,          # None: usa ~/.ssh/id_ed25519, se existir
         # password=None,        # Senha do SSH (se não usar chave)
         # key_passphrase=None,  # Senha de proteção da chave privada
-        # host_key=None,        # Chave pública SSH para validação do host
+        # host_key=None,        # Chave PÚBLICA do servidor, não a privada de login
     ),
     saida_csv=Path("diferencas_dev_infinity.csv"),
 )

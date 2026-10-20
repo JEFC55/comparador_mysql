@@ -51,8 +51,11 @@ class SSHConfigDTO:
               None procura automaticamente ~/.ssh/id_ed25519; sem chave,
               a biblioteca pode usar o agente SSH ou senha configurada.
     key_passphrase: frase secreta da chave privada, NÃO é senha do MySQL.
-    host_key: chave pública SSH esperada no formato da biblioteca sshtunnel;
-              defina-a para fixar a identidade do host (recomendado).
+    host_key: chave pública do SERVIDOR SSH (não a chave privada de login),
+              no formato "ssh-ed25519 AAAA..." ou linha de known_hosts
+              "host ssh-ed25519 AAAA...". O código converte-a para
+              paramiko.PKey antes de abrir o túnel. Defina este valor para
+              verificar a identidade do servidor e evitar spoofing.
     """
 
     host: str = ""
